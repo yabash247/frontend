@@ -1,0 +1,15 @@
+@use './variables' as vars;
+@use './mixins' as mixins;
+
+body {
+  font-family: Arial, sans-serif;
+  background-color: vars.$primary-color;
+  color: vars.$text-color;
+
+  .container {
+    @include mixins.flex-center;
+  }
+}
+
+
+@import './darkmode.scss';

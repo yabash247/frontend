@@ -1,0 +1,24 @@
+// Custom Dark Mode Class
+.dark-mode {
+    background-color: #1a202c; // Dark background color
+    color: #ffffff; // White text color
+  }
+  
+  // Additional nested styles for dark mode
+  .dark-mode a {
+    color: #63b3ed; // Light blue links
+  }
+  
+  .dark-mode button {
+    background-color: #2d3748; // Slightly lighter dark background for buttons
+    color: #ffffff;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
+  
+    &:hover {
+      background-color: #4a5568; // Lighter shade on hover
+    }
+  }
+  
