@@ -6,7 +6,7 @@ import Logo from "../../Components/Shared/Logo";
 import { dynamicImage } from "../../service";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAppDispatch } from "../../ReduxToolkit/Hooks";
-import { loginUser } from "../../ReduxToolkit/Reducers/authSlice";
+import { loginUser } from "../../ReduxToolkit/Reducers/authSlice"; // Import the loginUser action
 
 export default function Login() {
   const [formData, setFormData] = useState({
