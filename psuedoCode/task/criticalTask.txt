@@ -1,0 +1,170 @@
+
+topCriticalTask component
+
+    Display X=5 most critical task in in carousel.
+        Due in 1day but not pastdue 
+            most critical
+
+        Past Due
+
+    GUI
+        Display in carousel 
+
+For each task in queryset, include its associated_activity data, this data can be gotten from ActivityOwner model.
+        associated_activity = ActivityOwner.objects.filter(
+                branch=taskData.branch,
+                activity=taskData.activity,
+                appName=taskData.appName,
+                modelName=taskData.modelName,
+                company=taskData.company,
+            ).first()
+
+
+
+
+class TaskListCreateView(generics.ListCreateAPIView):
+    serializer_class = TaskSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """
+        Fetch tasks based on user, company, branch, status query parameters,
+        and annotate late task information if the user is an assistant.
+        Include tasks late by 2 days or more if the user is a branch staff.
+        """
+        user = self.request.user # Get the authenticated user
+        queryset = Task.objects.all() # Get all tasks
+
+        # Handle query parameters
+        all_param = self.request.query_params.get("all", "false").lower() == "true"
+        owner_param = self.request.query_params.get("owner", "false").lower() == "true"
+        assistant_param = self.request.query_params.get("assistant", "false").lower() == "true"
+        manager_param = self.request.query_params.get("manager", "false").lower() == "true"
+        company_id = self.request.query_params.get("company")
+        branch_id = self.request.query_params.get("branch")
+        status_param = self.request.query_params.get("status")
+
+        if manager_param:
+            # Initialize an empty query filter
+            member_query_filter = Q()
+
+            
+
+            # Filter tasks where the user is a manager
+            for task in queryset:
+
+                app_name = task.appName
+                # Get the StaffMember model (assumes app_name is constant or known)
+                StaffMemberModel = apps.get_model(app_name, 'StaffMember')  # Replace 'app_name' with actual app name
+
+
+                if StaffMemberModel.objects.filter(user=task.assigned_to, leader=user).exists():
+                    #print(f"User is a manager of {task.assigned_to}")
+                    member_query_filter |= Q(assigned_to=task.assigned_to)
+
+            # Apply the accumulated filter to the queryset
+            member_querySet = queryset.filter(member_query_filter)
+
+            return member_querySet
+        
+    
+        if all_param:
+            # also check if user is a manager of the farm***.
+
+            if branch_id and not company_id:
+                raise ValidationError("'company' is required when 'branch' is provided.")
+
+            if company_id:
+                try:
+                    company = Company.objects.get(id=company_id)
+                except Company.DoesNotExist:
+                    raise ValidationError(f"Company with ID '{company_id}' does not exist.")
+
+                if not has_permission(user, company, app_name="bsf", model_name="Task", action="view"):
+                    raise PermissionDenied("You do not have permission to view tasks for this company.")
+
+                queryset = queryset.filter(company=company)
+
+                if branch_id:
+                    try:
+                        branch = Branch.objects.get(branch_id=branch_id)
+                    except Branch.DoesNotExist:
+                        raise ValidationError(f"Branch with ID '{branch_id}' does not exist.")
+
+                    if branch.company != company:
+                        raise ValidationError(f"Branch '{branch.name}' does not belong to Company '{company.name}'.")
+
+                    queryset = queryset.filter(branch=branch)
+       
+
+        elif owner_param:
+            # Get all tasks where the user is the owner
+            queryset = queryset.filter(owner=user)
+
+        elif assistant_param:
+            # Get all tasks where the user is the assistant
+            queryset = queryset.filter(assistant=user)
+            
+        else:
+            # Get all tasks assigned to the user
+            queryset = queryset.filter(assigned_to=user)
+
+            # Get all late tasks where the user is an assistant
+            late_tasks = Task.objects.filter(
+                due_date__lt=now() - timedelta(days=1),
+                status="active",
+                assistant=user
+            )
+            queryset = queryset | late_tasks  # Combine the two querysets
+
+        
+        # Include extra tasks delayed by 2 or more days for branch staff
+        delayed_tasks = Task.objects.filter(
+            due_date__lt=now() - timedelta(days=2),
+            status="active"
+        )
+
+        for task in delayed_tasks:
+            appName = task.appName
+            # Check if the user is an active staff member of the branch
+            StaffMemberModel = apps.get_model(appName, 'StaffMember')
+            if StaffMemberModel.objects.filter(user=user, status="active", company=task.company).exists():
+                queryset = queryset | delayed_tasks 
+        
+        # Filter by task completion and ownership
+        completed_tasks = Task.objects.exclude(status="active")
+        user_completed_tasks = completed_tasks.filter(completed_by=user)
+        other_completed_tasks = completed_tasks.exclude(completed_by=user)
+        queryset = queryset | user_completed_tasks
+        queryset = queryset.exclude(pk__in=other_completed_tasks.values_list('pk', flat=True))
+
+        # Filter by status
+        if status_param:
+            valid_status_choices = [choice[0] for choice in Task.STATUS_CHOICES]
+            if status_param not in valid_status_choices:
+                raise ValidationError({"status": f"Invalid status '{status_param}'. Valid options are: {', '.join(valid_status_choices)}."})
+            queryset = queryset.filter(status=status_param)
+
+        
+        if company_id:# If company is provided in param:
+                try:
+                    company = Company.objects.get(id=company_id)
+                except Company.DoesNotExist: # Check if company exist
+                    raise ValidationError(f"Company with ID '{company_id}' does not exist.")
+                if not has_permission(user, company, app_name="bsf", model_name="Task", action="view"):
+                    raise PermissionDenied("You do not have permission to view tasks for this company.")
+                if branch_id:
+                    try: 
+                        branch = Branch.objects.get(branch_id=branch_id)
+                    except Branch.DoesNotExist:
+                            raise ValidationError(f"Branch with ID '{branch_id}' does not exist.")
+                    if branch :
+                        queryset = queryset.filter(branch=branch)
+                queryset = queryset.filter(company=company)
+
+    
+        return queryset
+
+    def perform_create(self, serializer):
+        #**** Create Custom Task 
+        serializer.save()
