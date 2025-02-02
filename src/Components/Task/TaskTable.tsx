@@ -9,7 +9,12 @@ import {
   clearSelectedTask
 } from "../../ReduxToolkit/Reducers/taskSlice";
 
-//import Laying_Start from "../Task/bsf/NetInUse/Laying_Start";
+// Preload dynamic modules using glob patterns.
+// Adjust the glob pattern and extensions as needed.
+const pondStartModules = import.meta.glob('./*/PondInUse/StageStart.tsx');
+const pondEndModules = import.meta.glob('./*/PondInUse/StageEnd.tsx');
+// For the fallback case: assuming the path is: "./{appName}/{modelName}/{activity}.tsx"
+const otherModules = import.meta.glob('./*/**/*.tsx');
 
 type Task = {
   id: number;
@@ -49,41 +54,48 @@ const TaskTable: React.FC = () => {
 
   useEffect(() => {
     dispatch(getTasks({}));
-  }, [dispatch]); ``
+  }, [dispatch]);
 
   const handleEdit = async (task: Task) => {
     dispatch(selectTask(task));
     setIsModalOpen(true);
 
     try {
-      //console.log("Dynamic Import Path:", `../${task.appName}/${task.modelName}/${task.activity}`);
-
+      // If modelName is "PondUseStats", decide which component to load based on the status in the description
       if (task.modelName === "PondUseStats") {
         const statusMatch = task.description.match(/- Stats: (\w+)/);
         if (statusMatch && statusMatch[1] === "ongoing") {
-          const Component = await import(
-            `./${task.appName}/PondInUse/StageStart`
-          ).then((module) => module.default);
-          setDynamicComponent(() => Component);
+          // Construct the key for the module
+          const key = `./${task.appName}/PondInUse/StageStart.tsx`;
+          if (pondStartModules[key]) {
+            const module = await pondStartModules[key]();
+            setDynamicComponent(() => (module as { default: React.FC<DynamicComponentProps> }).default);
+          } else {
+            console.error("Module not found for key:", key);
+          }
+        } else if (statusMatch && statusMatch[1] === "completed") {
+          const key = `./${task.appName}/PondInUse/StageEnd.tsx`;
+          if (pondEndModules[key]) {
+            const module = await pondEndModules[key]();
+            setDynamicComponent(() => (module as { default: React.FC<DynamicComponentProps> }).default);
+          } else {
+            console.error("Module not found for key:", key);
+          }
         }
-        else if (statusMatch && statusMatch[1] === "completed") {
-          const Component = await import(
-            `./${task.appName}/PondInUse/StageEnd`
-          ).then((module) => module.default);
-          setDynamicComponent(() => Component);
+      } else {
+        // Fallback: try to load a component from the path: ./{appName}/{modelName}/{activity}.tsx
+        const key = `./${task.appName}/${task.modelName}/${task.activity}.tsx`;
+        if (otherModules[key]) {
+          const module = await otherModules[key]();
+          setDynamicComponent(() => (module as { default: React.FC<DynamicComponentProps> }).default);
+        } else {
+          console.error("Module not found for key:", key);
         }
-
       }
-        else {
-          const Component = await import(
-            `./${task.appName}/${task.modelName}/${task.activity}`
-          ).then((module) => module.default);
-          setDynamicComponent(() => Component);
-        }
-      } catch (error) {
-        console.error("Error loading component:", error);
-        setDynamicComponent(() => () => <p>Error loading component</p>);
-      }
+    } catch (error) {
+      console.error("Error loading component:", error);
+      setDynamicComponent(() => () => <p>Error loading component</p>);
+    }
   };
 
   const closeModal = () => {
@@ -99,11 +111,8 @@ const TaskTable: React.FC = () => {
 
   const extractModelid = (description: string): string => {
     const match = description.match(/- model_id : (\w+)/);
-    //console.log(match ? match[1] : "N/A"); 
     return match ? match[1] : "N/A";
-    };
-
-
+  };
 
   return (
     <div className="container mx-auto p-4">
@@ -140,48 +149,42 @@ const TaskTable: React.FC = () => {
               </tr>
             ))}
           </tbody>
-
-
         </table>
       )}
 
       {isModalOpen && selectedTask && (
-        console.log("Selected Task:", selectedTask),
-        
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white p-6 rounded shadow-lg w-3/4 relative">
-            <button
-              onClick={closeModal}
-              className="absolute top-4 right-4 text-gray-600 hover:text-gray-800 focus:outline-none"
-            >
-              ✕
-            </button>
-            {DynamicComponent && (
-              <Suspense fallback={<p>Loading component...</p>}>
-                <DynamicComponent
-                  taskId={selectedTask?.id || 0}
-                  taskTitle={selectedTask?.title || ""}
-                  createdDate={selectedTask?.created_at || ""}
-                  appName={selectedTask?.appName || ""}
-                  modelName={selectedTask?.modelName || ""}
-                  modelID={extractModelid(selectedTask?.description) || ""}
-                  activity={selectedTask?.activity || ""}
-                  batch={extractBatch(selectedTask?.description) || ""}
-                  company={selectedTask?.company || ""}
-                  description={selectedTask?.description || ""}
-                  branch={selectedTask?.branch || ""}
-                />
-              </Suspense>
-            )}
-
+        <>
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+            <div className="bg-white p-6 rounded shadow-lg w-3/4 relative">
+              <button
+                onClick={closeModal}
+                className="absolute top-4 right-4 text-gray-600 hover:text-gray-800 focus:outline-none"
+              >
+                ✕
+              </button>
+              {DynamicComponent && (
+                <Suspense fallback={<p>Loading component...</p>}>
+                  <DynamicComponent
+                    taskId={selectedTask?.id || 0}
+                    taskTitle={selectedTask?.title || ""}
+                    createdDate={selectedTask?.created_at || ""}
+                    appName={selectedTask?.appName || ""}
+                    modelName={selectedTask?.modelName || ""}
+                    modelID={extractModelid(selectedTask?.description) || ""}
+                    activity={selectedTask?.activity || ""}
+                    batch={extractBatch(selectedTask?.description) || ""}
+                    company={selectedTask?.company || ""}
+                    description={selectedTask?.description || ""}
+                    branch={selectedTask?.branch || ""}
+                  />
+                </Suspense>
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
 };
 
 export default TaskTable;
-
-
-

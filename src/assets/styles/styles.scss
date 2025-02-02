@@ -1,5 +1,6 @@
 @use './variables' as vars;
 @use './mixins' as mixins;
+@use './darkmode.scss';
 
 body {
   font-family: Arial, sans-serif;
@@ -12,4 +13,3 @@ body {
 }
 
 
-@import './darkmode.scss';
