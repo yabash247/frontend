@@ -44,7 +44,7 @@ export default function Login() {
       {/* Left Section */}
       <div className="w-full md:w-1/2 flex flex-col justify-center items-center bg-white px-6 py-8">
         <div className="w-full max-w-md">
-          <Logo />
+          <Logo isDarkMode={false} />
           <LoginHeader title="Welcome Back!" subtitle="Please Log in to your account." />
           <form onSubmit={handleSubmit} className="space-y-6">
             <LoginForm formData={formData} setFormData={setFormData} />

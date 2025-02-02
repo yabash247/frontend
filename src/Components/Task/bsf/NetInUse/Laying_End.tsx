@@ -53,7 +53,7 @@ const Laying_End: React.FC<LayingEndProps> = ({
         modelID,
         stats: "ongoing",
       })
-    ).then((result) => {
+    ).then(() => {
       //console.log(result);
     });
   }, [dispatch, company, farm, batch]);

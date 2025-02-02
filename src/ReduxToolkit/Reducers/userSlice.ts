@@ -5,7 +5,7 @@ import { backendURL } from "../../Utils/Constants"; // Import backendURL from Co
 // Fetch user details
 export const fetchUserDetails = createAsyncThunk(
   "user/fetchUserDetails",
-  async (userId: string, { getState }) => {
+  async (_, { getState }) => {
     console.log('response');
     const state = getState() as RootState; // Get RootState
     const token = state.auth.access; // Access token from auth slice

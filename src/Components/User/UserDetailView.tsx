@@ -20,7 +20,7 @@ interface UserDetailViewProps {
 
   useEffect(() => {
     if (userId) {
-      dispatch(fetchUserDetails(userId));
+      dispatch(fetchUserDetails());
     }
   }, [dispatch, userId]);
 
